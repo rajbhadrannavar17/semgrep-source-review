@@ -1,0 +1,120 @@
+rules:
+  - id: py-debug-enabled
+    languages: [python]
+    severity: ERROR
+    message: Debug mode enabled (stack traces/console exposed).
+    pattern-either:
+      - pattern: $APP.run(..., debug=True, ...)
+      - pattern: DEBUG = True
+    metadata: {cwe: ["CWE-489", "CWE-215"], owasp: ["A05:2021"]}
+
+  - id: py-print-traceback
+    languages: [python]
+    severity: WARNING
+    message: Stack trace printed or returned; may leak internals.
+    pattern-either:
+      - pattern: traceback.print_exc(...)
+      - pattern: traceback.format_exc(...)
+      - pattern: return str($E), ...
+    metadata: {cwe: ["CWE-209"]}
+
+  - id: py-django-allowed-hosts-wildcard
+    languages: [python]
+    severity: WARNING
+    message: ALLOWED_HOSTS allows all hosts.
+    pattern: ALLOWED_HOSTS = [..., "*", ...]
+    metadata: {cwe: ["CWE-183"]}
+
+  - id: js-error-stack-to-client
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Error object/stack sent to client.
+    pattern-either:
+      - pattern: $RES.send($ERR.stack)
+      - pattern: '$RES.json({..., stack: $ERR.stack, ...})'
+      - pattern: $RES.send($ERR)
+      - pattern: $RES.status(...).send($ERR.message)
+      - pattern: '$RES.status(...).json({..., error: $ERR, ...})'
+    metadata: {cwe: ["CWE-209"], owasp: ["A05:2021"]}
+
+  - id: js-log-sensitive
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Sensitive value written to log/console.
+    patterns:
+      - pattern-either:
+          - pattern: console.$M(..., $X, ...)
+          - pattern: logger.$M(..., $X, ...)
+      - metavariable-regex:
+          metavariable: $X
+          regex: '(?i).*(password|passwd|secret|token|apikey|api_key|authorization|ssn|card|cvv).*'
+    metadata: {cwe: ["CWE-532"], owasp: ["A09:2021"]}
+
+  - id: js-x-powered-by
+    languages: [javascript, typescript]
+    severity: INFO
+    message: Express exposes X-Powered-By; use helmet or app.disable('x-powered-by').
+    pattern: $APP = express()
+    metadata: {cwe: ["CWE-200"]}
+
+  - id: java-printstacktrace
+    languages: [java]
+    severity: WARNING
+    message: printStackTrace leaks internals; use a logger.
+    pattern: $E.printStackTrace()
+    metadata: {cwe: ["CWE-209", "CWE-489"]}
+
+  - id: java-log-sensitive
+    languages: [java]
+    severity: WARNING
+    message: Sensitive variable logged.
+    patterns:
+      - pattern-either:
+          - pattern: $LOG.$M(..., $X, ...)
+          - pattern: System.out.println(..., $X, ...)
+      - metavariable-regex:
+          metavariable: $X
+          regex: '(?i).*(password|passwd|secret|token|apikey|authorization|ssn|cvv).*'
+    metadata: {cwe: ["CWE-532"]}
+
+  - id: php-display-errors
+    languages: [php]
+    severity: ERROR
+    message: Error display / phpinfo exposes internals.
+    pattern-either:
+      - pattern: ini_set("display_errors", ...)
+      - pattern: error_reporting(E_ALL)
+      - pattern: phpinfo()
+      - pattern: var_dump(...)
+      - pattern: print_r(...)
+    metadata: {cwe: ["CWE-209", "CWE-200"]}
+
+  - id: go-error-to-client
+    languages: [go]
+    severity: WARNING
+    message: Raw error returned to client.
+    pattern-either:
+      - pattern: http.Error($W, $ERR.Error(), ...)
+      - pattern: $W.Write([]byte($ERR.Error()))
+    metadata: {cwe: ["CWE-209"]}
+
+  - id: cors-wildcard
+    languages: [generic]
+    severity: WARNING
+    message: Wildcard CORS origin.
+    pattern-regex: '(?i)(access-control-allow-origin["'']?\s*[:,=]\s*["'']\*["'']|origin\s*:\s*["'']\*["'']|allow_origins\s*=\s*\[\s*["'']\*["'']|CORS_ORIGIN_ALLOW_ALL\s*=\s*True)'
+    metadata: {cwe: ["CWE-942"], owasp: ["A05:2021"]}
+
+  - id: sensitive-comments
+    languages: [generic]
+    severity: WARNING
+    message: Comment references credentials or internal details.
+    pattern-regex: '(?im)(//|#|/\*|<!--)\s*.*\b(password|passwd|secret|api[_-]?key|token|credential|backdoor|hack|temp\s*creds?)\b\s*[:=\-]'
+    metadata: {cwe: ["CWE-615"]}
+
+  - id: sourcemap-or-debug-artifacts
+    languages: [generic]
+    severity: INFO
+    message: Source map / debug artifact reference.
+    pattern-regex: '(//# sourceMappingURL=.*\.map|productionBrowserSourceMaps\s*:\s*true|devtool\s*:\s*["'']source-map["''])'
+    metadata: {cwe: ["CWE-540"]}

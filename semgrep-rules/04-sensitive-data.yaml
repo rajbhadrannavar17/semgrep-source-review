@@ -1,0 +1,54 @@
+rules:
+  - id: pan-india
+    languages: [generic]
+    severity: WARNING
+    message: Possible Indian PAN number.
+    pattern-regex: '\b[A-Z]{5}[0-9]{4}[A-Z]\b'
+    metadata: {cwe: ["CWE-359"]}
+
+  - id: aadhaar-number
+    languages: [generic]
+    severity: WARNING
+    message: Possible Aadhaar number (high false-positive rate; review).
+    pattern-regex: '\b[2-9]\d{3}[\s\-]?\d{4}[\s\-]?\d{4}\b'
+    metadata: {cwe: ["CWE-359"]}
+
+  - id: us-ssn
+    languages: [generic]
+    severity: WARNING
+    message: Possible US SSN.
+    pattern-regex: '\b(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b'
+    metadata: {cwe: ["CWE-359"]}
+
+  - id: credit-card-number
+    languages: [generic]
+    severity: ERROR
+    message: Possible payment card number (PCI-DSS).
+    pattern-regex: '\b(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{3,4}\b'
+    metadata: {cwe: ["CWE-311", "CWE-359"]}
+
+  - id: pii-field-plaintext-storage
+    languages: [generic]
+    severity: INFO
+    message: PII field name found; confirm it is encrypted/masked at rest and in logs.
+    pattern-regex: '(?i)\b(ssn|aadhaar|aadhar|pan_?number|passport(_?no)?|date_?of_?birth|dob|credit_?card|card_?number|cvv|iban|account_?number)\b\s*[:=]'
+    metadata: {cwe: ["CWE-312"]}
+
+  - id: password-in-url-or-query
+    languages: [generic]
+    severity: ERROR
+    message: Credential passed in URL/query string.
+    pattern-regex: '(?i)[?&](password|passwd|pwd|token|api_?key|secret)=[^&\s"'']+'
+    metadata: {cwe: ["CWE-598"]}
+
+  - id: localstorage-sensitive
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Sensitive data stored in web storage (readable by XSS).
+    pattern-either:
+      - pattern: localStorage.setItem("$K", ...)
+      - pattern: sessionStorage.setItem("$K", ...)
+    metavariable-regex:
+      metavariable: $K
+      regex: '(?i).*(token|jwt|password|secret|session|auth).*'
+    metadata: {cwe: ["CWE-922"]}

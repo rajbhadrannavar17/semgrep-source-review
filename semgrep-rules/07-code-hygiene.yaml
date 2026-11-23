@@ -1,0 +1,100 @@
+rules:
+  - id: todo-fixme-security
+    languages: [generic]
+    severity: INFO
+    message: Unresolved TODO/FIXME/HACK; review for security impact.
+    pattern-regex: '(?i)(//|#|/\*|<!--)\s*(TODO|FIXME|HACK|XXX|BUG|INSECURE|UNSAFE|REMOVE ME)\b.*'
+
+  - id: debugger-statement
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: debugger statement left in code.
+    pattern: debugger;
+
+  - id: debug-print-js
+    languages: [javascript, typescript]
+    severity: INFO
+    message: console.* debug output left in code.
+    pattern-either:
+      - pattern: console.log(...)
+      - pattern: console.debug(...)
+
+  - id: debug-print-py
+    languages: [python]
+    severity: INFO
+    message: print()/pdb left in code.
+    pattern-either:
+      - pattern: print(...)
+      - pattern: pdb.set_trace()
+      - pattern: breakpoint()
+      - pattern: import pdb
+
+  - id: dead-branch-constant-condition
+    languages: [python, javascript, typescript, java, php, go]
+    severity: INFO
+    message: Constant condition; dead or disabled code path (may hide a bypass).
+    pattern-either:
+      - pattern: if (false) {...}
+      - pattern: if (true) {...}
+      - pattern: if (0) {...}
+      - pattern: 'if False: ...'
+      - pattern: 'if 0: ...'
+
+  - id: empty-catch-swallowed-exception
+    languages: [javascript, typescript, java, php]
+    severity: WARNING
+    message: Exception swallowed silently; hides security-relevant failures.
+    pattern-either:
+      - pattern: |
+          try { ... } catch ($E) { }
+      - pattern: |
+          try { ... } catch ($T $E) { }
+
+  - id: py-bare-except-pass
+    languages: [python]
+    severity: WARNING
+    message: Exception swallowed silently.
+    pattern-either:
+      - pattern: |
+          try:
+              ...
+          except:
+              pass
+      - pattern: |
+          try:
+              ...
+          except $E:
+              pass
+    metadata: {cwe: ["CWE-390", "CWE-703"]}
+
+  - id: py-assert-for-security
+    languages: [python]
+    severity: INFO
+    message: assert is stripped under -O; do not use for validation/authorization.
+    pattern: assert $X
+
+  # Heuristic only. Semgrep is not a reliable unused-variable detector.
+  # Confirm with: ruff check --select F841
+  - id: py-unused-assignment-heuristic
+    languages: [python]
+    severity: INFO
+    message: Variable assigned and never used in this function (heuristic; confirm with ruff F841).
+    patterns:
+      - pattern: |
+          def $F(...):
+              ...
+              $V = $EXPR
+              ...
+      - pattern-not: |
+          def $F(...):
+              ...
+              $V = $EXPR
+              ...
+              <... $V ...>
+    options: {symbolic_propagation: false}
+
+  - id: commented-out-code-block
+    languages: [generic]
+    severity: INFO
+    message: Commented-out code; may contain old credentials or logic.
+    pattern-regex: '(?m)^\s*(//|#)\s*(import |require\(|def |function |class |return |if \(|SELECT |INSERT |password)'

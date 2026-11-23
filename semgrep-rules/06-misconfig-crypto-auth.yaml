@@ -1,0 +1,228 @@
+rules:
+  # ---- Cryptographic failures ----
+  - id: weak-hash-py
+    languages: [python]
+    severity: WARNING
+    message: Weak hash (MD5/SHA1); use SHA-256+ (bcrypt/argon2 for passwords).
+    pattern-either:
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
+    metadata: {cwe: ["CWE-327", "CWE-328"], owasp: ["A02:2021"]}
+
+  - id: weak-hash-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Weak hash algorithm.
+    pattern-either:
+      - pattern: crypto.createHash("md5")
+      - pattern: crypto.createHash("sha1")
+    metadata: {cwe: ["CWE-327"], owasp: ["A02:2021"]}
+
+  - id: weak-crypto-java
+    languages: [java]
+    severity: ERROR
+    message: Weak algorithm or mode (MD5/SHA-1/DES/ECB).
+    pattern-either:
+      - pattern: MessageDigest.getInstance("MD5")
+      - pattern: MessageDigest.getInstance("SHA-1")
+      - pattern: MessageDigest.getInstance("SHA1")
+      - pattern: Cipher.getInstance("DES...")
+      - pattern: Cipher.getInstance("RC4")
+      - pattern: Cipher.getInstance("AES")
+      - pattern: Cipher.getInstance("AES/ECB/...")
+    metadata: {cwe: ["CWE-327"], owasp: ["A02:2021"]}
+
+  - id: weak-hash-php
+    languages: [php]
+    severity: WARNING
+    message: md5/sha1 used; use password_hash() for passwords.
+    pattern-either:
+      - pattern: md5(...)
+      - pattern: sha1(...)
+    metadata: {cwe: ["CWE-327"]}
+
+  - id: insecure-random-token
+    languages: [python]
+    severity: WARNING
+    message: random module is not cryptographically secure; use secrets.
+    pattern-either:
+      - pattern: random.random()
+      - pattern: random.randint(...)
+      - pattern: random.choice(...)
+    metadata: {cwe: ["CWE-338"], owasp: ["A02:2021"]}
+
+  - id: insecure-random-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Math.random is not secure; use crypto.randomBytes/randomUUID for tokens.
+    pattern: Math.random()
+    metadata: {cwe: ["CWE-338"]}
+
+  - id: insecure-random-java
+    languages: [java]
+    severity: WARNING
+    message: java.util.Random is predictable; use SecureRandom.
+    pattern: new Random(...)
+    metadata: {cwe: ["CWE-338"]}
+
+  # ---- TLS / transport ----
+  - id: tls-verification-disabled
+    languages: [generic]
+    severity: ERROR
+    message: TLS certificate verification disabled.
+    pattern-regex: '(verify\s*=\s*False|rejectUnauthorized\s*:\s*false|InsecureSkipVerify\s*:\s*true|CURLOPT_SSL_VERIFYPEER\s*,\s*(false|0)|NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*["'']?0|ssl\._create_unverified_context|TrustAllCerts|ALLOW_ALL_HOSTNAME_VERIFIER)'
+    metadata: {cwe: ["CWE-295"], owasp: ["A07:2021"]}
+
+  - id: http-cleartext-endpoint
+    languages: [generic]
+    severity: INFO
+    message: Cleartext HTTP URL.
+    patterns:
+      - pattern-regex: '["'']http://[^"''\s]+["'']'
+      - pattern-not-regex: '(localhost|127\.0\.0\.1|w3\.org|schemas\.|xmlns|example\.)'
+    metadata: {cwe: ["CWE-319"]}
+
+  # ---- Authentication / session ----
+  - id: jwt-none-or-no-verify
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    message: JWT signature verification disabled or 'none' algorithm allowed.
+    pattern-either:
+      - pattern: jwt.decode(..., verify=False, ...)
+      - pattern: 'jwt.decode(..., options={..., "verify_signature": False, ...}, ...)'
+      - pattern: 'jwt.verify($T, $K, {..., algorithms: [..., "none", ...], ...})'
+      - pattern: jwt.decode($T)
+    metadata: {cwe: ["CWE-347"], owasp: ["A02:2021"]}
+
+  - id: insecure-cookie-flags
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Cookie missing secure/httpOnly flags.
+    pattern-either:
+      - pattern: $RES.cookie($N, $V)
+      - pattern: '$RES.cookie($N, $V, {..., httpOnly: false, ...})'
+      - pattern: '$RES.cookie($N, $V, {..., secure: false, ...})'
+    metadata: {cwe: ["CWE-614", "CWE-1004"]}
+
+  - id: flask-session-cookie-insecure
+    languages: [python]
+    severity: WARNING
+    message: Session cookie flag disabled.
+    pattern-either:
+      - pattern: SESSION_COOKIE_SECURE = False
+      - pattern: SESSION_COOKIE_HTTPONLY = False
+      - pattern: CSRF_COOKIE_SECURE = False
+      - pattern: $APP.config["SESSION_COOKIE_SECURE"] = False
+    metadata: {cwe: ["CWE-614"]}
+
+  - id: csrf-disabled
+    languages: [python, java, javascript, typescript]
+    severity: WARNING
+    message: CSRF protection disabled.
+    pattern-either:
+      - pattern: "@csrf_exempt"
+      - pattern: $H.csrf().disable()
+      - pattern: WTF_CSRF_ENABLED = False
+    metadata: {cwe: ["CWE-352"], owasp: ["A01:2021"]}
+
+  - id: password-compare-plaintext
+    languages: [python, javascript, typescript, java, php]
+    severity: WARNING
+    message: Direct password equality check; use constant-time hash verification.
+    patterns:
+      - pattern-either:
+          - pattern: $A == $B
+          - pattern: $A === $B
+          - pattern: $A.equals($B)
+      - metavariable-regex:
+          metavariable: $A
+          regex: '(?i).*password.*'
+    metadata: {cwe: ["CWE-208", "CWE-256"]}
+
+  # ---- Insecure deserialization / unsafe functions ----
+  - id: unsafe-deserialization-py
+    languages: [python]
+    severity: ERROR
+    message: Unsafe deserialization.
+    pattern-either:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)
+      - pattern: marshal.loads(...)
+      - pattern: yaml.load($X)
+      - pattern: yaml.load($X, Loader=yaml.Loader)
+      - pattern: yaml.unsafe_load(...)
+    metadata: {cwe: ["CWE-502"], owasp: ["A08:2021"]}
+
+  - id: unsafe-deserialization-java-php
+    languages: [java, php]
+    severity: ERROR
+    message: Unsafe deserialization.
+    pattern-either:
+      - pattern: new ObjectInputStream(...).readObject()
+      - pattern: (ObjectInputStream $O).readObject()
+      - pattern: unserialize(...)
+    metadata: {cwe: ["CWE-502"], owasp: ["A08:2021"]}
+
+  - id: dangerous-eval
+    languages: [python, javascript, typescript, php]
+    severity: ERROR
+    message: Dynamic code evaluation.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+      - pattern: new Function(...)
+      - pattern: setTimeout("...", ...)
+      - pattern: assert(...)
+    metadata: {cwe: ["CWE-95"], owasp: ["A03:2021"]}
+
+  - id: xxe-enabled
+    languages: [java, python, php]
+    severity: ERROR
+    message: XML parser may allow external entities (XXE).
+    pattern-either:
+      - pattern: DocumentBuilderFactory.newInstance()
+      - pattern: SAXParserFactory.newInstance()
+      - pattern: XMLInputFactory.newInstance()
+      - pattern: etree.XMLParser(..., resolve_entities=True, ...)
+      - pattern: libxml_disable_entity_loader(false)
+    metadata: {cwe: ["CWE-611"], owasp: ["A05:2021"]}
+
+  - id: insecure-file-upload-or-tmp
+    languages: [python]
+    severity: WARNING
+    message: Insecure temp file / unvalidated upload path.
+    pattern-either:
+      - pattern: tempfile.mktemp(...)
+      - pattern: $F.save(os.path.join(..., $F.filename))
+    metadata: {cwe: ["CWE-377", "CWE-434"]}
+
+  - id: weak-password-policy-or-default-creds
+    languages: [generic]
+    severity: INFO
+    message: Possible weak password policy (short minimum length).
+    pattern-regex: '(?i)(min(imum)?_?(password_?)?(len|length)\s*[:=]\s*[1-7]\b)'
+    metadata: {cwe: ["CWE-521"], owasp: ["A07:2021"]}
+
+  - id: missing-security-headers-hint
+    languages: [javascript, typescript]
+    severity: INFO
+    message: Express app created; verify helmet/security headers/rate limiting are configured.
+    pattern: $APP = express()
+    metadata: {cwe: ["CWE-693", "CWE-770"], owasp: ["A05:2021"]}
+
+  # NOTE: least reliable rule in this set. If it misfires, delete it and
+  # rely on the taint rules plus the registry pack p/sql-injection.
+  - id: sql-string-concat-generic
+    languages: [python, javascript, typescript, java, php, go]
+    severity: WARNING
+    message: SQL built via string concatenation/formatting; use parameterized queries.
+    patterns:
+      - pattern-either:
+          - pattern: $X + "..." + $Y
+          - pattern: f"..."
+          - pattern: $FMT.format(...)
+          - pattern: '"..." % $Y'
+      - metavariable-regex:
+          metavariable: $X
+          regex: '(?is).*(select\s.+from|insert\s+into|update\s.+set|delete\s+from).*'
+    metadata: {cwe: ["CWE-89"], owasp: ["A03:2021"]}

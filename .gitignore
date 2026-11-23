@@ -1,0 +1,3 @@
+# Semgrep output can contain sensitive code snippets and paths.
+semgrep-results/
+*.sarif

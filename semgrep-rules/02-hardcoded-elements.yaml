@@ -1,0 +1,61 @@
+rules:
+  - id: hardcoded-ipv4
+    languages: [generic]
+    severity: INFO
+    message: Hardcoded IP address; move to configuration.
+    patterns:
+      - pattern-regex: '\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b'
+      - pattern-not-regex: '\b(0\.0\.0\.0|127\.0\.0\.1|255\.255\.255\.\d+)\b'
+    metadata: {cwe: ["CWE-547"]}
+
+  - id: internal-ip-range
+    languages: [generic]
+    severity: WARNING
+    message: Internal/private network address exposed in source.
+    pattern-regex: '\b(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b'
+    metadata: {cwe: ["CWE-200"]}
+
+  - id: hardcoded-url
+    languages: [generic]
+    severity: INFO
+    message: Hardcoded URL/endpoint; consider configuration.
+    patterns:
+      - pattern-regex: '["'']https?://[A-Za-z0-9.\-]+(:\d+)?(/[^"''\s]*)?["'']'
+      - pattern-not-regex: '(w3\.org|schemas\.|xmlns|apache\.org/licenses|github\.com|example\.(com|org)|localhost)'
+
+  - id: internal-hostname
+    languages: [generic]
+    severity: WARNING
+    message: Internal hostname/domain referenced.
+    pattern-regex: '(?i)["'']?[a-z0-9\-\.]+\.(internal|corp|local|intranet|lan|private)\b'
+    metadata: {cwe: ["CWE-200"]}
+
+  - id: hardcoded-email
+    languages: [generic]
+    severity: INFO
+    message: Hardcoded email address.
+    patterns:
+      - pattern-regex: '\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b'
+      - pattern-not-regex: '(example\.(com|org)|noreply|no-reply)'
+
+  - id: hardcoded-admin-user
+    languages: [generic]
+    severity: WARNING
+    message: Default/privileged username hardcoded.
+    pattern-regex: '(?i)\b(user(name)?|login)["'']?\s*[:=]\s*["''](admin|root|administrator|sa|test|guest)["'']'
+    metadata: {cwe: ["CWE-798"]}
+
+  - id: hardcoded-port-bind
+    languages: [generic]
+    severity: INFO
+    message: Hardcoded host/port binding.
+    pattern-regex: '(?i)\b(host|port|bind)["'']?\s*[:=]\s*["'']?(0\.0\.0\.0|\d{2,5})["'']?'
+
+  - id: hardcoded-crypto-material
+    languages: [generic]
+    severity: ERROR
+    message: Hardcoded key, IV, or salt.
+    patterns:
+      - pattern-regex: '(?i)\b(iv|salt|aes[_-]?key|encryption[_-]?key|secret[_-]?key|signing[_-]?key)["'']?\s*[:=]\s*["''][^"'']{8,}["'']'
+      - pattern-not-regex: '(?i)(getenv|environ|\$\{|<[^>]+>|changeme)'
+    metadata: {cwe: ["CWE-321", "CWE-329"]}

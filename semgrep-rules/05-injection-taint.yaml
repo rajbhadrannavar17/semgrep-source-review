@@ -1,0 +1,313 @@
+rules:
+  # ---------- PYTHON ----------
+  - id: py-sqli
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: User input reaches a SQL query built by string concatenation/formatting.
+    pattern-sources:
+      - pattern: request.args.get(...)
+      - pattern: request.args[...]
+      - pattern: request.form.get(...)
+      - pattern: request.form[...]
+      - pattern: request.GET.get(...)
+      - pattern: request.POST.get(...)
+      - pattern: request.json
+      - pattern: request.data
+    pattern-sinks:
+      - patterns:
+          - pattern: $CUR.execute($Q, ...)
+          - focus-metavariable: $Q
+    metadata: {cwe: ["CWE-89"], owasp: ["A03:2021"]}
+
+  - id: py-command-injection
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: User input reaches an OS command.
+    pattern-sources:
+      - pattern: request.args.get(...)
+      - pattern: request.form.get(...)
+      - pattern: request.GET.get(...)
+      - pattern: request.POST.get(...)
+      - pattern: request.json
+    pattern-sinks:
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+      - pattern: subprocess.$F(..., shell=True, ...)
+    metadata: {cwe: ["CWE-78"], owasp: ["A03:2021"]}
+
+  - id: py-path-traversal
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: User input used in a file path.
+    pattern-sources:
+      - pattern: request.args.get(...)
+      - pattern: request.form.get(...)
+      - pattern: request.GET.get(...)
+      - pattern: request.POST.get(...)
+    pattern-sinks:
+      - pattern: open($P, ...)
+      - pattern: send_file($P, ...)
+      - pattern: os.path.join(..., $P, ...)
+    pattern-sanitizers:
+      - pattern: werkzeug.utils.secure_filename(...)
+      - pattern: os.path.basename(...)
+    metadata: {cwe: ["CWE-22"], owasp: ["A01:2021"]}
+
+  - id: py-ssrf
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: User-controlled URL fetched server-side (SSRF).
+    pattern-sources:
+      - pattern: request.args.get(...)
+      - pattern: request.form.get(...)
+      - pattern: request.json
+      - pattern: request.GET.get(...)
+      - pattern: request.POST.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: requests.$M($U, ...)
+              - pattern: urllib.request.urlopen($U, ...)
+              - pattern: httpx.$M($U, ...)
+          - focus-metavariable: $U
+    metadata: {cwe: ["CWE-918"], owasp: ["A10:2021"]}
+
+  - id: py-xss
+    mode: taint
+    languages: [python]
+    severity: ERROR
+    message: User input rendered without escaping.
+    pattern-sources:
+      - pattern: request.args.get(...)
+      - pattern: request.form.get(...)
+      - pattern: request.GET.get(...)
+      - pattern: request.POST.get(...)
+    pattern-sinks:
+      - pattern: render_template_string(...)
+      - pattern: Markup(...)
+      - pattern: mark_safe(...)
+      - pattern: HttpResponse(...)
+    pattern-sanitizers:
+      - pattern: escape(...)
+      - pattern: html.escape(...)
+    metadata: {cwe: ["CWE-79"], owasp: ["A03:2021"]}
+
+  # ---------- JAVASCRIPT / TYPESCRIPT ----------
+  - id: js-sqli
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Request data reaches a SQL query string.
+    pattern-sources:
+      - pattern: $REQ.query.$X
+      - pattern: $REQ.body.$X
+      - pattern: $REQ.params.$X
+      - pattern: $REQ.query
+      - pattern: $REQ.body
+      - pattern: $REQ.params
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.query($Q, ...)
+              - pattern: $DB.execute($Q, ...)
+              - pattern: $DB.raw($Q, ...)
+              - pattern: $DB.$M.query($Q, ...)
+          - focus-metavariable: $Q
+    metadata: {cwe: ["CWE-89"], owasp: ["A03:2021"]}
+
+  - id: js-command-injection
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Request data reaches a shell command.
+    pattern-sources:
+      - pattern: $REQ.query.$X
+      - pattern: $REQ.body.$X
+      - pattern: $REQ.params.$X
+    pattern-sinks:
+      - pattern: child_process.exec(...)
+      - pattern: child_process.execSync(...)
+      - pattern: exec(...)
+      - pattern: execSync(...)
+      - pattern: eval(...)
+      - pattern: new Function(...)
+    metadata: {cwe: ["CWE-78", "CWE-95"], owasp: ["A03:2021"]}
+
+  - id: js-path-traversal
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Request data used in a file path.
+    pattern-sources:
+      - pattern: $REQ.query.$X
+      - pattern: $REQ.body.$X
+      - pattern: $REQ.params.$X
+    pattern-sinks:
+      - pattern: fs.$M($P, ...)
+      - pattern: $RES.sendFile($P, ...)
+      - pattern: $RES.download($P, ...)
+    pattern-sanitizers:
+      - pattern: path.basename(...)
+    metadata: {cwe: ["CWE-22"], owasp: ["A01:2021"]}
+
+  - id: js-ssrf
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: User-controlled URL fetched server-side (SSRF).
+    pattern-sources:
+      - pattern: $REQ.query.$X
+      - pattern: $REQ.body.$X
+      - pattern: $REQ.params.$X
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: axios.$M($U, ...)
+              - pattern: fetch($U, ...)
+              - pattern: http.get($U, ...)
+              - pattern: https.get($U, ...)
+              - pattern: got($U, ...)
+          - focus-metavariable: $U
+    metadata: {cwe: ["CWE-918"], owasp: ["A10:2021"]}
+
+  - id: js-open-redirect
+    mode: taint
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: User-controlled redirect target.
+    pattern-sources:
+      - pattern: $REQ.query.$X
+      - pattern: $REQ.body.$X
+    pattern-sinks:
+      - pattern: $RES.redirect(...)
+    metadata: {cwe: ["CWE-601"]}
+
+  - id: js-xss-sinks
+    mode: taint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Untrusted data reaches an HTML sink.
+    pattern-sources:
+      - pattern: $REQ.query.$X
+      - pattern: $REQ.body.$X
+      - pattern: $REQ.params.$X
+      - pattern: location.hash
+      - pattern: location.search
+      - pattern: document.cookie
+      - pattern: window.name
+    pattern-sinks:
+      - pattern: $EL.innerHTML = ...
+      - pattern: $EL.outerHTML = ...
+      - pattern: document.write(...)
+      - pattern: $RES.send(...)
+      - pattern: '<$X dangerouslySetInnerHTML={{__html: ...}} />'
+    metadata: {cwe: ["CWE-79"], owasp: ["A03:2021"]}
+
+  # ---------- JAVA ----------
+  - id: java-sqli
+    mode: taint
+    languages: [java]
+    severity: ERROR
+    message: Request data reaches a SQL statement.
+    pattern-sources:
+      - pattern: (HttpServletRequest $R).getParameter(...)
+      - patterns:
+          - pattern-inside: |
+              $RET $M(..., @RequestParam(...) $T $SRC, ...) { ... }
+          - pattern: $SRC
+    pattern-sinks:
+      - pattern: (Statement $S).executeQuery(...)
+      - pattern: (Statement $S).executeUpdate(...)
+      - pattern: (Statement $S).execute(...)
+      - pattern: (EntityManager $E).createNativeQuery(...)
+      - pattern: (JdbcTemplate $J).query(...)
+    metadata: {cwe: ["CWE-89"], owasp: ["A03:2021"]}
+
+  - id: java-command-injection
+    mode: taint
+    languages: [java]
+    severity: ERROR
+    message: Request data reaches an OS command.
+    pattern-sources:
+      - pattern: (HttpServletRequest $R).getParameter(...)
+      - patterns:
+          - pattern-inside: |
+              $RET $M(..., @RequestParam(...) $T $SRC, ...) { ... }
+          - pattern: $SRC
+    pattern-sinks:
+      - pattern: Runtime.getRuntime().exec(...)
+      - pattern: new ProcessBuilder(...)
+    metadata: {cwe: ["CWE-78"], owasp: ["A03:2021"]}
+
+  - id: java-path-traversal-ssrf
+    mode: taint
+    languages: [java]
+    severity: ERROR
+    message: Request data reaches a file path or outbound URL.
+    pattern-sources:
+      - pattern: (HttpServletRequest $R).getParameter(...)
+      - patterns:
+          - pattern-inside: |
+              $RET $M(..., @RequestParam(...) $T $SRC, ...) { ... }
+          - pattern: $SRC
+    pattern-sinks:
+      - pattern: new File(...)
+      - pattern: new FileInputStream(...)
+      - pattern: Paths.get(...)
+      - pattern: new URL(...)
+    metadata: {cwe: ["CWE-22", "CWE-918"]}
+
+  # ---------- PHP ----------
+  - id: php-injection-generic
+    mode: taint
+    languages: [php]
+    severity: ERROR
+    message: Request data reaches a dangerous sink (SQLi/RCE/LFI/SSRF/XSS).
+    pattern-sources:
+      - pattern: $_GET[...]
+      - pattern: $_POST[...]
+      - pattern: $_REQUEST[...]
+      - pattern: $_COOKIE[...]
+    pattern-sinks:
+      - pattern: mysqli_query($C, ...)
+      - pattern: $DB->query(...)
+      - pattern: system(...)
+      - pattern: exec(...)
+      - pattern: shell_exec(...)
+      - pattern: passthru(...)
+      - pattern: eval(...)
+      - pattern: include(...)
+      - pattern: require(...)
+      - pattern: include_once(...)
+      - pattern: file_get_contents(...)
+      - pattern: unserialize(...)
+      - pattern: echo ...
+      - pattern: print(...)
+    pattern-sanitizers:
+      - pattern: htmlspecialchars(...)
+      - pattern: intval(...)
+      - pattern: escapeshellarg(...)
+      - pattern: mysqli_real_escape_string(...)
+    metadata: {cwe: ["CWE-89", "CWE-78", "CWE-98", "CWE-79"]}
+
+  # ---------- GO ----------
+  - id: go-injection-generic
+    mode: taint
+    languages: [go]
+    severity: ERROR
+    message: Request data reaches SQL/command/file sink.
+    pattern-sources:
+      - pattern: $R.URL.Query().Get(...)
+      - pattern: $R.FormValue(...)
+      - pattern: $R.PostFormValue(...)
+    pattern-sinks:
+      - pattern: $DB.Query($Q, ...)
+      - pattern: $DB.Exec($Q, ...)
+      - pattern: exec.Command(...)
+      - pattern: os.Open(...)
+      - pattern: http.Get(...)
+    metadata: {cwe: ["CWE-89", "CWE-78", "CWE-22", "CWE-918"]}
